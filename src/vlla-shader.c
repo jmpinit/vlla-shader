@@ -1,4 +1,9 @@
 #include <stdlib.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <errno.h>
+#include <string.h>
+
 #include "esUtil.h"
 
 typedef struct
@@ -56,6 +61,29 @@ GLuint LoadShader ( GLenum type, const char *shaderSrc )
 
 }
 
+char* loadfile(char* filename) {
+    char* buffer = 0;
+    long length;
+    FILE* f = fopen (filename, "rb");
+
+    if(f) {
+        fseek (f, 0, SEEK_END);
+        length = ftell (f);
+        fseek (f, 0, SEEK_SET);
+        buffer = malloc(length);
+        if(buffer) {
+            fread (buffer, 1, length, f);
+        }
+        fclose (f);
+    }
+
+    if(buffer) {
+        return buffer;
+    } else {
+        return 0;
+    }
+}
+
 ///
 // Initialize the shader and program object
 //
@@ -64,7 +92,7 @@ int Init ( ESContext *esContext )
    esContext->userData = malloc(sizeof(UserData));
 
    UserData *userData = esContext->userData;
-   GLbyte vShaderStr[] =  
+   /*GLbyte vShaderStr[] =  
       "attribute vec4 vPosition;    \n"
       "void main()                  \n"
       "{                            \n"
@@ -75,8 +103,8 @@ int Init ( ESContext *esContext )
       "precision mediump float;\n"\
       "void main()                                  \n"
       "{                                            \n"
-      "  gl_FragColor = vec4 ( 0.0, 0.0, 1.0, 0.0 );\n"
-      "}                                            \n";
+      "  gl_FragColor = vec4 ( 0.0, 0.0, 1.0, gl_FragCoord.xf );\n"
+      "}                                            \n";*/
 
    GLuint vertexShader;
    GLuint fragmentShader;
@@ -84,8 +112,8 @@ int Init ( ESContext *esContext )
    GLint linked;
 
    // Load the vertex/fragment shaders
-   vertexShader = LoadShader ( GL_VERTEX_SHADER, vShaderStr );
-   fragmentShader = LoadShader ( GL_FRAGMENT_SHADER, fShaderStr );
+   vertexShader = LoadShader ( GL_VERTEX_SHADER, loadfile("vert.glsl") );
+   fragmentShader = LoadShader ( GL_FRAGMENT_SHADER, loadfile("frag.glsl") );
 
    // Create the program object
    programObject = glCreateProgram ( );
