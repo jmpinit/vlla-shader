@@ -163,8 +163,8 @@ int Init ( ESContext *esContext )
 ///
 // Draw a triangle using the shader pair created in Init()
 //
-void Draw ( ESContext *esContext )
-{
+float shaderTime = 0.0f;
+void Draw ( ESContext *esContext ) {
    UserData *userData = esContext->userData;
    GLfloat vVertices[] = {  1.0f,  1.0f, 0.0f,
                            -1.0f,  1.0f, 0.0f,
@@ -177,8 +177,13 @@ void Draw ( ESContext *esContext )
    // Clear the color buffer
    glClear ( GL_COLOR_BUFFER_BIT );
 
+   int timeLoc = glGetUniformLocation(userData->programObject, "t");
+   glUniform1f(timeLoc, shaderTime);
+
    // Use the program object
    glUseProgram ( userData->programObject );
+
+   shaderTime += 1.0;
 
    // Load the vertex data
    glVertexAttribPointer ( 0, 3, GL_FLOAT, GL_FALSE, 0, vVertices );
