@@ -1,0 +1,7 @@
+# binaries
+obj/
+bin/
+
+# vim
+*.swp
+*.swo
