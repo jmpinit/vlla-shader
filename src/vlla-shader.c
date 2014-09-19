@@ -1,19 +1,3 @@
-//
-// Book:      OpenGL(R) ES 2.0 Programming Guide
-// Authors:   Aaftab Munshi, Dan Ginsburg, Dave Shreiner
-// ISBN-10:   0321502795
-// ISBN-13:   9780321502797
-// Publisher: Addison-Wesley Professional
-// URLs:      http://safari.informit.com/9780321563835
-//            http://www.opengles-book.com
-//
-
-// Hello_Triangle.c
-//
-//    This is a simple example that draws a single triangle with
-//    a minimal vertex/fragment shader.  The purpose of this 
-//    example is to demonstrate the basic concepts of 
-//    OpenGL ES 2.0 rendering.
 #include <stdlib.h>
 #include "esUtil.h"
 
@@ -91,7 +75,7 @@ int Init ( ESContext *esContext )
       "precision mediump float;\n"\
       "void main()                                  \n"
       "{                                            \n"
-      "  gl_FragColor = vec4 ( 1.0, 0.0, 0.0, 1.0 );\n"
+      "  gl_FragColor = vec4 ( 0.0, 0.0, 1.0, 0.0 );\n"
       "}                                            \n";
 
    GLuint vertexShader;
@@ -144,7 +128,7 @@ int Init ( ESContext *esContext )
    // Store the program object
    userData->programObject = programObject;
 
-   glClearColor ( 0.0f, 0.0f, 0.0f, 1.0f );
+   glClearColor ( 0.0f, 0.0f, 0.0f, 0.0f );
    return GL_TRUE;
 }
 
@@ -154,10 +138,11 @@ int Init ( ESContext *esContext )
 void Draw ( ESContext *esContext )
 {
    UserData *userData = esContext->userData;
-   GLfloat vVertices[] = {  0.0f,  0.5f, 0.0f, 
-                           -0.5f, -0.5f, 0.0f,
-                            0.5f, -0.5f, 0.0f };
-      
+   GLfloat vVertices[] = {  1.0f,  1.0f, 0.0f,
+                           -1.0f,  1.0f, 0.0f,
+                            1.0f, -1.0f, 0.0f,
+                           -1.0f, -1.0f, 0.0f };
+
    // Set the viewport
    glViewport ( 0, 0, esContext->width, esContext->height );
    
@@ -171,7 +156,7 @@ void Draw ( ESContext *esContext )
    glVertexAttribPointer ( 0, 3, GL_FLOAT, GL_FALSE, 0, vVertices );
    glEnableVertexAttribArray ( 0 );
 
-   glDrawArrays ( GL_TRIANGLES, 0, 3 );
+   glDrawArrays ( GL_TRIANGLE_STRIP, 0, 4 );
 }
 
 int main ( int argc, char *argv[] )
