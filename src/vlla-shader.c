@@ -5,6 +5,9 @@
 #include <string.h>
 
 #include "esUtil.h"
+#include "portaudio.h"
+
+#define SAMPLE_RATE (44100)
 
 typedef struct
 {
@@ -92,19 +95,6 @@ int Init ( ESContext *esContext )
    esContext->userData = malloc(sizeof(UserData));
 
    UserData *userData = esContext->userData;
-   /*GLbyte vShaderStr[] =  
-      "attribute vec4 vPosition;    \n"
-      "void main()                  \n"
-      "{                            \n"
-      "   gl_Position = vPosition;  \n"
-      "}                            \n";
-   
-   GLbyte fShaderStr[] =  
-      "precision mediump float;\n"\
-      "void main()                                  \n"
-      "{                                            \n"
-      "  gl_FragColor = vec4 ( 0.0, 0.0, 1.0, gl_FragCoord.xf );\n"
-      "}                                            \n";*/
 
    GLuint vertexShader;
    GLuint fragmentShader;
@@ -163,7 +153,17 @@ int Init ( ESContext *esContext )
 ///
 // Draw a triangle using the shader pair created in Init()
 //
+
+typedef struct {
+    float sample;
+} shaderAudioData;
+
+PaStream *stream;
+PaError err;
+static shaderAudioData data;
+
 float shaderTime = 0.0f;
+
 void Draw ( ESContext *esContext ) {
    UserData *userData = esContext->userData;
    GLfloat vVertices[] = {  1.0f,  1.0f, 0.0f,
@@ -177,13 +177,17 @@ void Draw ( ESContext *esContext ) {
    // Clear the color buffer
    glClear ( GL_COLOR_BUFFER_BIT );
 
-   int timeLoc = glGetUniformLocation(userData->programObject, "t");
+   int timeLoc = glGetUniformLocation(userData->programObject, "iGlobalTime");
+   int resLoc = glGetUniformLocation(userData->programObject, "iResolution");
+   int channel0Loc = glGetUniformLocation(userData->programObject, "iChannel0");
    glUniform1f(timeLoc, shaderTime);
+   glUniform2f(resLoc, 60.0f, 32.0f);
+   glUniform1f(channel0Loc, sample);
 
    // Use the program object
    glUseProgram ( userData->programObject );
 
-   shaderTime += 1.0;
+   shaderTime += 0.5;
 
    // Load the vertex data
    glVertexAttribPointer ( 0, 3, GL_FLOAT, GL_FALSE, 0, vVertices );
@@ -192,8 +196,73 @@ void Draw ( ESContext *esContext ) {
    glDrawArrays ( GL_TRIANGLE_STRIP, 0, 4 );
 }
 
+static int audioCallback( const void *inputBuffer, void *outputBuffer,
+        unsigned long framesPerBuffer,
+        const PaStreamCallbackTimeInfo* timeInfo,
+        PaStreamCallbackFlags statusFlags,
+        void *userData ) {
+    /* Cast data passed through stream to our structure. */
+    shaderAudioData *data = (shaderAudioData*)userData; 
+    float *out = (float*)outputBuffer;
+    unsigned int i;
+    (void) inputBuffer; /* Prevent unused variable warning. */
+
+    float total = 0;
+    for( i=0; i<framesPerBuffer; i++ ) {
+        total += out[i];
+    }
+    data->sample = total / framesPerBuffer;
+
+    return 0;
+}
+
+void cleanup() {
+    err = Pa_StopStream( stream );
+    if( err != paNoError )
+        printf(  "PortAudio error: %s\n", Pa_GetErrorText( err ) );
+
+    err = Pa_Terminate();
+    if( err != paNoError )
+        printf(  "PortAudio error: %s\n", Pa_GetErrorText( err ) );
+}
+
 int main ( int argc, char *argv[] )
 {
+    err = Pa_Initialize();
+    if( err != paNoError ) {
+        printf(  "PortAudio error: %s\n", Pa_GetErrorText( err ) );
+        exit(1);
+    }
+    atexit(cleanup);
+
+     /* Open an audio I/O stream. */
+     err = Pa_OpenDefaultStream( &stream,
+             1,          /* input channels */
+             0,          /* no output */
+             paFloat32,  /* 32 bit floating point output */
+             SAMPLE_RATE,
+             256,        /* frames per buffer, i.e. the number
+                            of sample frames that PortAudio will
+                            request from the callback. Many apps
+                            may want to use
+                            paFramesPerBufferUnspecified, which
+                            tells PortAudio to pick the best,
+                            possibly changing, buffer size.*/
+             audioCallback, /* this is your callback function */
+             &data ); /*This is a pointer that will be passed to
+                        your callback*/
+    if( err != paNoError ) {
+        printf(  "PortAudio error: %s\n", Pa_GetErrorText( err ) );
+        exit(1);
+    }
+
+    err = Pa_StartStream(stream);
+
+    if( err != paNoError ) {
+        printf(  "PortAudio error: %s\n", Pa_GetErrorText( err ) );
+        exit(1);
+    }
+
    ESContext esContext;
    UserData  userData;
 
