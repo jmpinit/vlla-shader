@@ -1,8 +1,15 @@
+#ifdef GL_ES
 precision mediump float;
+#endif
 
-uniform float t;
+uniform sampler2D fft;
 
-void main(void){
-    vec2 uv = gl_FragCoord.xy;
-    gl_FragColor = vec4(sin(gl_FragCoord.y/2.)+1.+sin(t+180.),.02,sin(gl_FragCoord.x/2.)+1.+sin(t),1.0);
+uniform float time;
+uniform vec2 mouse;
+uniform vec2 resolution;
+
+//varying lowp vec2 TexCoordOut;
+
+void main() {
+    gl_FragColor = texture2D(fft, vec2(gl_FragCoord.x / resolution.x, gl_FragCoord.y / resolution.y));
 }

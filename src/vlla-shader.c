@@ -4,14 +4,72 @@
 #include <errno.h>
 #include <string.h>
 
+#include "kiss_fftr.h"
 #include "esUtil.h"
 
-typedef struct
-{
-   // Handle to a program object
-   GLuint programObject;
+#define WIDTH 60
+#define HEIGHT 32
+#define NUM_BYTES (WIDTH*HEIGHT)
 
+#define FFT_SIZE NUM_BYTES
+kiss_fftr_cfg fft_cfg;
+kiss_fft_scalar *fft_in;
+kiss_fft_cpx *fft_out;
+float log_pwr_fft[FFT_SIZE];
+
+GLubyte fft_tex[60*32*4];
+
+int yzero = 0;
+float scale = 0.05f;
+
+typedef struct {
+    // Handle to a program object
+    GLuint programObject;
 } UserData;
+
+int db_to_pixel(float dbfs) {
+    return yzero + (int)(-dbfs*scale);
+}
+
+void updateFFT() {
+    static int pos;
+
+    char buffer[FFT_SIZE];
+    int len = read(STDIN_FILENO, buffer, FFT_SIZE);
+
+    int i;
+    for(i=0; i < len; i++) {
+        int k = (pos+i)%NUM_BYTES;
+        fft_tex[k*4] = buffer[i] << 2;
+    }
+    pos += len;
+
+    /*int i;
+    for(i=0; i < FFT_SIZE; i++) {
+        fft_in[i] = (float)buffer[i] / 256.f;
+    }
+
+    kiss_fftr(fft_cfg, fft_in, fft_out);
+
+    kiss_fft_cpx pt;
+    for(i = 0; i < FFT_SIZE; i++) {
+        // shift, normalize and convert to dBFS
+        if(i < FFT_SIZE / 2) {
+            pt.r = fft_out[FFT_SIZE/2+i].r / FFT_SIZE;
+            pt.i = fft_out[FFT_SIZE/2+i].i / FFT_SIZE;
+        } else {
+            pt.r = fft_out[i-FFT_SIZE/2].r / FFT_SIZE;
+            pt.i = fft_out[i-FFT_SIZE/2].i / FFT_SIZE;
+        }
+        float pwr = pt.r * pt.r + pt.i * pt.i;
+
+        log_pwr_fft[i] = 10.f * log10(pwr + 1.0e-20f);
+    }
+
+    for(i=0; i < FFT_SIZE; i++) {
+        fft_tex[i*4] = db_to_pixel(log_pwr_fft[i]);
+    }*/
+}
 
 ///
 // Create a shader object, load the shader source, and
@@ -19,45 +77,45 @@ typedef struct
 //
 GLuint LoadShader ( GLenum type, const char *shaderSrc )
 {
-   GLuint shader;
-   GLint compiled;
-   
-   // Create the shader object
-   shader = glCreateShader ( type );
+    GLuint shader;
+    GLint compiled;
 
-   if ( shader == 0 )
-   	return 0;
+    // Create the shader object
+    shader = glCreateShader ( type );
 
-   // Load the shader source
-   glShaderSource ( shader, 1, &shaderSrc, NULL );
-   
-   // Compile the shader
-   glCompileShader ( shader );
+    if ( shader == 0 )
+        return 0;
 
-   // Check the compile status
-   glGetShaderiv ( shader, GL_COMPILE_STATUS, &compiled );
+    // Load the shader source
+    glShaderSource ( shader, 1, &shaderSrc, NULL );
 
-   if ( !compiled ) 
-   {
-      GLint infoLen = 0;
+    // Compile the shader
+    glCompileShader ( shader );
 
-      glGetShaderiv ( shader, GL_INFO_LOG_LENGTH, &infoLen );
-      
-      if ( infoLen > 1 )
-      {
-         char* infoLog = malloc (sizeof(char) * infoLen );
+    // Check the compile status
+    glGetShaderiv ( shader, GL_COMPILE_STATUS, &compiled );
 
-         glGetShaderInfoLog ( shader, infoLen, NULL, infoLog );
-         esLogMessage ( "Error compiling shader:\n%s\n", infoLog );            
-         
-         free ( infoLog );
-      }
+    if ( !compiled ) 
+    {
+        GLint infoLen = 0;
 
-      glDeleteShader ( shader );
-      return 0;
-   }
+        glGetShaderiv ( shader, GL_INFO_LOG_LENGTH, &infoLen );
 
-   return shader;
+        if ( infoLen > 1 )
+        {
+            char* infoLog = malloc (sizeof(char) * infoLen );
+
+            glGetShaderInfoLog ( shader, infoLen, NULL, infoLog );
+            esLogMessage ( "Error compiling shader:\n%s\n", infoLog );            
+
+            free ( infoLog );
+        }
+
+        glDeleteShader ( shader );
+        return 0;
+    }
+
+    return shader;
 
 }
 
@@ -89,75 +147,75 @@ char* loadfile(char* filename) {
 //
 int Init ( ESContext *esContext )
 {
-   esContext->userData = malloc(sizeof(UserData));
+    esContext->userData = malloc(sizeof(UserData));
 
-   UserData *userData = esContext->userData;
-   /*GLbyte vShaderStr[] =  
+    UserData *userData = esContext->userData;
+    /*GLbyte vShaderStr[] =  
       "attribute vec4 vPosition;    \n"
       "void main()                  \n"
       "{                            \n"
       "   gl_Position = vPosition;  \n"
       "}                            \n";
-   
-   GLbyte fShaderStr[] =  
+
+      GLbyte fShaderStr[] =  
       "precision mediump float;\n"\
       "void main()                                  \n"
       "{                                            \n"
       "  gl_FragColor = vec4 ( 0.0, 0.0, 1.0, gl_FragCoord.xf );\n"
       "}                                            \n";*/
 
-   GLuint vertexShader;
-   GLuint fragmentShader;
-   GLuint programObject;
-   GLint linked;
+    GLuint vertexShader;
+    GLuint fragmentShader;
+    GLuint programObject;
+    GLint linked;
 
-   // Load the vertex/fragment shaders
-   vertexShader = LoadShader ( GL_VERTEX_SHADER, loadfile("vert.glsl") );
-   fragmentShader = LoadShader ( GL_FRAGMENT_SHADER, loadfile("frag.glsl") );
+    // Load the vertex/fragment shaders
+    vertexShader = LoadShader ( GL_VERTEX_SHADER, loadfile("vert.glsl") );
+    fragmentShader = LoadShader ( GL_FRAGMENT_SHADER, loadfile("frag.glsl") );
 
-   // Create the program object
-   programObject = glCreateProgram ( );
-   
-   if ( programObject == 0 )
-      return 0;
+    // Create the program object
+    programObject = glCreateProgram ( );
 
-   glAttachShader ( programObject, vertexShader );
-   glAttachShader ( programObject, fragmentShader );
+    if ( programObject == 0 )
+        return 0;
 
-   // Bind vPosition to attribute 0   
-   glBindAttribLocation ( programObject, 0, "vPosition" );
+    glAttachShader ( programObject, vertexShader );
+    glAttachShader ( programObject, fragmentShader );
 
-   // Link the program
-   glLinkProgram ( programObject );
+    // Bind vPosition to attribute 0   
+    glBindAttribLocation ( programObject, 0, "vPosition" );
 
-   // Check the link status
-   glGetProgramiv ( programObject, GL_LINK_STATUS, &linked );
+    // Link the program
+    glLinkProgram ( programObject );
 
-   if ( !linked ) 
-   {
-      GLint infoLen = 0;
+    // Check the link status
+    glGetProgramiv ( programObject, GL_LINK_STATUS, &linked );
 
-      glGetProgramiv ( programObject, GL_INFO_LOG_LENGTH, &infoLen );
-      
-      if ( infoLen > 1 )
-      {
-         char* infoLog = malloc (sizeof(char) * infoLen );
+    if ( !linked ) 
+    {
+        GLint infoLen = 0;
 
-         glGetProgramInfoLog ( programObject, infoLen, NULL, infoLog );
-         esLogMessage ( "Error linking program:\n%s\n", infoLog );            
-         
-         free ( infoLog );
-      }
+        glGetProgramiv ( programObject, GL_INFO_LOG_LENGTH, &infoLen );
 
-      glDeleteProgram ( programObject );
-      return GL_FALSE;
-   }
+        if ( infoLen > 1 )
+        {
+            char* infoLog = malloc (sizeof(char) * infoLen );
 
-   // Store the program object
-   userData->programObject = programObject;
+            glGetProgramInfoLog ( programObject, infoLen, NULL, infoLog );
+            esLogMessage ( "Error linking program:\n%s\n", infoLog );            
 
-   glClearColor ( 0.0f, 0.0f, 0.0f, 0.0f );
-   return GL_TRUE;
+            free ( infoLog );
+        }
+
+        glDeleteProgram ( programObject );
+        return GL_FALSE;
+    }
+
+    // Store the program object
+    userData->programObject = programObject;
+
+    glClearColor ( 0.0f, 0.0f, 0.0f, 0.0f );
+    return GL_TRUE;
 }
 
 ///
@@ -165,47 +223,80 @@ int Init ( ESContext *esContext )
 //
 float shaderTime = 0.0f;
 void Draw ( ESContext *esContext ) {
-   UserData *userData = esContext->userData;
-   GLfloat vVertices[] = {  1.0f,  1.0f, 0.0f,
-                           -1.0f,  1.0f, 0.0f,
-                            1.0f, -1.0f, 0.0f,
-                           -1.0f, -1.0f, 0.0f };
+    UserData *userData = esContext->userData;
+    GLfloat vVertices[] = {  1.0f,  1.0f, 0.0f,
+        -1.0f,  1.0f, 0.0f,
+        1.0f, -1.0f, 0.0f,
+        -1.0f, -1.0f, 0.0f };
 
-   // Set the viewport
-   glViewport ( 0, 0, esContext->width, esContext->height );
-   
-   // Clear the color buffer
-   glClear ( GL_COLOR_BUFFER_BIT );
+    // Set the viewport
+    glViewport ( 0, 0, esContext->width, esContext->height );
 
-   int timeLoc = glGetUniformLocation(userData->programObject, "t");
-   glUniform1f(timeLoc, shaderTime);
+    // Clear the color buffer
+    glClear ( GL_COLOR_BUFFER_BIT );
 
-   // Use the program object
-   glUseProgram ( userData->programObject );
+    int timeLoc = glGetUniformLocation(userData->programObject, "time");
+    glUniform1f(timeLoc, shaderTime);
 
-   shaderTime += 1.0;
+    int resolutionLoc = glGetUniformLocation(userData->programObject, "resolution");
+    glUniform2f(resolutionLoc, 60.0, 32.0);
 
-   // Load the vertex data
-   glVertexAttribPointer ( 0, 3, GL_FLOAT, GL_FALSE, 0, vVertices );
-   glEnableVertexAttribArray ( 0 );
+    // AUDIO
 
-   glDrawArrays ( GL_TRIANGLE_STRIP, 0, 4 );
+    GLuint textureID[1];
+    glGenTextures(1, textureID);
+
+    glBindTexture(GL_TEXTURE_2D, textureID[0]);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 60, 32, 0, GL_RGBA, GL_UNSIGNED_BYTE, (GLvoid*)fft_tex);
+
+    GLint baseImageLoc = glGetUniformLocation(userData->programObject, "fft");
+    glUniform1i(baseImageLoc, 0);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, textureID[0]);
+
+    updateFFT();
+
+    int mouseLoc = glGetUniformLocation(userData->programObject, "mouse");
+    glUniform2f(mouseLoc, 0.f, 0.f);
+
+    // Use the program object
+    glUseProgram(userData->programObject);
+
+    shaderTime += 1.0;
+
+    // Load the vertex data
+    glVertexAttribPointer ( 0, 3, GL_FLOAT, GL_FALSE, 0, vVertices );
+    glEnableVertexAttribArray ( 0 );
+
+    glDrawArrays ( GL_TRIANGLE_STRIP, 0, 4 );
 }
 
-int main ( int argc, char *argv[] )
-{
-   ESContext esContext;
-   UserData  userData;
+int main ( int argc, char *argv[] ) {
+    fft_cfg = kiss_fftr_alloc(FFT_SIZE, FALSE, NULL, NULL);
+    fft_in = (kiss_fft_scalar*)malloc(FFT_SIZE * sizeof(kiss_fft_scalar));
+    fft_out = (kiss_fft_cpx*)malloc(FFT_SIZE / 2 * sizeof(kiss_fft_cpx) + 1);
 
-   esInitContext ( &esContext );
-   esContext.userData = &userData;
+    /*// debug pattern
+    int i;
+    for(i=0; i < 60*32; i++) {
+        if(i%2==0)
+            fft_tex[i*4+1] = 255;
+    }*/
 
-   esCreateWindow ( &esContext, "Hello Triangle", 60, 32, ES_WINDOW_RGB );
+    ESContext esContext;
+    UserData  userData;
 
-   if ( !Init ( &esContext ) )
-      return 0;
+    esInitContext ( &esContext );
+    esContext.userData = &userData;
 
-   esRegisterDrawFunc ( &esContext, Draw );
+    esCreateWindow ( &esContext, "Hello Triangle", 60, 32, ES_WINDOW_RGB );
 
-   esMainLoop ( &esContext );
+    if ( !Init ( &esContext ) )
+        return 0;
+
+    esRegisterDrawFunc ( &esContext, Draw );
+
+    esMainLoop ( &esContext );
 }
