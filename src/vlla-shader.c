@@ -254,7 +254,7 @@ void Draw ( ESContext *esContext ) {
 
     glBindTexture(GL_TEXTURE_2D, textureID[0]);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 60, 32, 0, GL_RGBA, GL_UNSIGNED_BYTE, (GLvoid*)fft_tex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, FFT_SIZE, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, (GLvoid*)fft_tex);
 
     GLint baseImageLoc = glGetUniformLocation(userData->programObject, "fft");
     glUniform1i(baseImageLoc, 0);
