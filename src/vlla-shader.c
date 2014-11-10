@@ -25,6 +25,7 @@ GLubyte* fft_tex;
 
 int yzero = 80;
 float scale = -1.0f;
+float outerscale = 1.0f;
 
 typedef struct {
     // Handle to a program object
@@ -68,7 +69,7 @@ void updateFFT() {
 
         log_pwr_fft[i] = 10.f * log10(pwr + 1.0e-20f);
 
-        int v = db_to_pixel(log_pwr_fft[i]*2);
+        int v = outerscale*db_to_pixel(log_pwr_fft[i]);
         //if(i < 16)
         //    printf("%d\t", v);
         v = (v < 0)?      0       : v;
