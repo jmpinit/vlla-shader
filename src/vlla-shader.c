@@ -230,24 +230,26 @@ int Init ( ESContext *esContext )
 //
 void Draw ( ESContext *esContext ) {
     UserData *userData = esContext->userData;
-    GLfloat vVertices[] = {  1.0f,  1.0f, 0.0f,
-        -1.0f,  1.0f, 0.0f,
-        1.0f, -1.0f, 0.0f,
-        -1.0f, -1.0f, 0.0f };
 
-    // Set the viewport
-    glViewport ( 0, 0, esContext->width, esContext->height );
-
-    // Clear the color buffer
-    glClear ( GL_COLOR_BUFFER_BIT );
+    // TIME
 
     int timeLoc = glGetUniformLocation(userData->programObject, "time");
     glUniform1f(timeLoc, shaderTime);
+    shaderTime += 1.0;
+
+    // RESOLUTION
 
     int resolutionLoc = glGetUniformLocation(userData->programObject, "resolution");
     glUniform2f(resolutionLoc, 60.0, 32.0);
 
+    // MOUSE
+
+    int mouseLoc = glGetUniformLocation(userData->programObject, "mouse");
+    glUniform2f(mouseLoc, 0.f, 0.f);
+
     // AUDIO
+
+    updateFFT();
 
     GLuint textureID[1];
     glGenTextures(1, textureID);
@@ -262,19 +264,19 @@ void Draw ( ESContext *esContext ) {
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, textureID[0]);
 
-    updateFFT();
+    // Set the viewport
+    glViewport ( 0, 0, esContext->width, esContext->height );
 
-    int mouseLoc = glGetUniformLocation(userData->programObject, "mouse");
-    glUniform2f(mouseLoc, 0.f, 0.f);
+    // Clear the color buffer
+    glClear ( GL_COLOR_BUFFER_BIT );
 
     // Use the program object
     glUseProgram(userData->programObject);
 
-    shaderTime += 1.0;
-
     // Load the vertex data
-    glVertexAttribPointer ( 0, 3, GL_FLOAT, GL_FALSE, 0, vVertices );
-    glEnableVertexAttribArray ( 0 );
+    GLfloat vVertices[] = { 1.0f, 1.0f, 0.0f, -1.0f, 1.0f, 0.0f, 1.0f, -1.0f, 0.0f, -1.0f, -1.0f, 0.0f };
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, vVertices);
+    glEnableVertexAttribArray(0);
 
     glDrawArrays ( GL_TRIANGLE_STRIP, 0, 4 );
 }
