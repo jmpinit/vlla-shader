@@ -12,7 +12,7 @@
 
 #define WIDTH 60
 #define HEIGHT 32
-#define NUM_BYTES (WIDTH*HEIGHT)
+#define NUM_PIXELS (WIDTH*HEIGHT)
 
 #define FFT_SIZE 2048
 kiss_fft_cfg fft_cfg;
