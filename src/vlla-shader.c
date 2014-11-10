@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <errno.h>
@@ -7,20 +8,23 @@
 #include "kiss_fftr.h"
 #include "esUtil.h"
 
+#define BUFFER_SIZE 2048
+
 #define WIDTH 60
 #define HEIGHT 32
 #define NUM_BYTES (WIDTH*HEIGHT)
 
-#define FFT_SIZE NUM_BYTES
-kiss_fftr_cfg fft_cfg;
-kiss_fft_scalar *fft_in;
+#define FFT_SIZE 2048
+kiss_fft_cfg fft_cfg;
+kiss_fft_cpx *fft_in;
 kiss_fft_cpx *fft_out;
 float log_pwr_fft[FFT_SIZE];
 
+float shaderTime = 0.0f;
 GLubyte fft_tex[60*32*4];
 
-int yzero = 0;
-float scale = 0.05f;
+int yzero = 80;
+float scale = -1.0f;
 
 typedef struct {
     // Handle to a program object
@@ -31,44 +35,46 @@ int db_to_pixel(float dbfs) {
     return yzero + (int)(-dbfs*scale);
 }
 
-void updateFFT() {
-    static int pos;
-
-    char buffer[FFT_SIZE];
-    int len = read(STDIN_FILENO, buffer, FFT_SIZE);
+void shiftFFT(unsigned int amt) {
+    if(amt > FFT_SIZE) printf("\nFFT shifted too far.");
 
     int i;
-    for(i=0; i < len; i++) {
-        int k = (pos+i)%NUM_BYTES;
-        fft_tex[k*4] = buffer[i] << 2;
+    for(i = 0; i < FFT_SIZE - amt; i++) {
+        fft_in[i].r = fft_in[i+amt].r;
+        fft_in[i].i = fft_in[i+amt].i;
     }
-    pos += len;
+}
 
-    /*int i;
-    for(i=0; i < FFT_SIZE; i++) {
-        fft_in[i] = (float)buffer[i] / 256.f;
+void updateFFT() {
+    char buffer[BUFFER_SIZE];
+    int len = read(STDIN_FILENO, buffer, BUFFER_SIZE);
+
+    shiftFFT(len);
+
+    int i;
+    for(i=0; i < len; i += 2) {
+        fft_in[FFT_SIZE-len/2 + i/2].r = (float)(buffer[i]<<1) / 255.f;
+        fft_in[FFT_SIZE-len/2 + i/2].i = (float)(buffer[i+1]<<1) / 255.f;
     }
 
-    kiss_fftr(fft_cfg, fft_in, fft_out);
+    kiss_fft(fft_cfg, fft_in, fft_out);
 
     kiss_fft_cpx pt;
-    for(i = 0; i < FFT_SIZE; i++) {
-        // shift, normalize and convert to dBFS
-        if(i < FFT_SIZE / 2) {
-            pt.r = fft_out[FFT_SIZE/2+i].r / FFT_SIZE;
-            pt.i = fft_out[FFT_SIZE/2+i].i / FFT_SIZE;
-        } else {
-            pt.r = fft_out[i-FFT_SIZE/2].r / FFT_SIZE;
-            pt.i = fft_out[i-FFT_SIZE/2].i / FFT_SIZE;
-        }
+    for(i = 0; i < FFT_SIZE/2; i++) {
+        // normalize and convert to dBFS
+        pt.r = fft_out[i].r / FFT_SIZE;
+        pt.i = fft_out[i].i / FFT_SIZE;
         float pwr = pt.r * pt.r + pt.i * pt.i;
 
         log_pwr_fft[i] = 10.f * log10(pwr + 1.0e-20f);
-    }
 
-    for(i=0; i < FFT_SIZE; i++) {
-        fft_tex[i*4] = db_to_pixel(log_pwr_fft[i]);
-    }*/
+        int v = db_to_pixel(log_pwr_fft[i]*2);
+        //if(i < 16)
+        //    printf("%d\t", v);
+        v = (v < 0)?      0       : v;
+        v = (v > 0xff)?   0xff    : v;
+        fft_tex[(i+4*60)*4] = v;
+    }
 }
 
 ///
@@ -221,7 +227,6 @@ int Init ( ESContext *esContext )
 ///
 // Draw a triangle using the shader pair created in Init()
 //
-float shaderTime = 0.0f;
 void Draw ( ESContext *esContext ) {
     UserData *userData = esContext->userData;
     GLfloat vVertices[] = {  1.0f,  1.0f, 0.0f,
@@ -274,8 +279,8 @@ void Draw ( ESContext *esContext ) {
 }
 
 int main ( int argc, char *argv[] ) {
-    fft_cfg = kiss_fftr_alloc(FFT_SIZE, FALSE, NULL, NULL);
-    fft_in = (kiss_fft_scalar*)malloc(FFT_SIZE * sizeof(kiss_fft_scalar));
+    fft_cfg = kiss_fft_alloc(FFT_SIZE, FALSE, NULL, NULL);
+    fft_in = (kiss_fft_cpx*)malloc(FFT_SIZE * sizeof(kiss_fft_cpx));
     fft_out = (kiss_fft_cpx*)malloc(FFT_SIZE / 2 * sizeof(kiss_fft_cpx) + 1);
 
     /*// debug pattern

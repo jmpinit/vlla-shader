@@ -5,6 +5,8 @@ OBJDIR := obj
 BINDIR := bin
 
 SOURCES = vlla-shader.c \
+	  kiss_fft.c \
+	  kiss_fftr.c \
 	  common/esUtil.c \
 
 INCLUDES = -Isrc/inc/common -Isrc/inc -I/usr/local/include -I/opt/vc/include -I/opt/vc/include/interface/vcos/pthreads -I/opt/vc/include/interface/vmcs_host/linux
