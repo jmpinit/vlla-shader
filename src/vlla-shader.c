@@ -21,7 +21,7 @@ kiss_fft_cpx *fft_out;
 float log_pwr_fft[FFT_SIZE];
 
 float shaderTime = 0.0f;
-GLubyte fft_tex[60*32*4];
+GLubyte* fft_tex;
 
 int yzero = 80;
 float scale = -1.0f;
@@ -283,12 +283,12 @@ int main ( int argc, char *argv[] ) {
     fft_in = (kiss_fft_cpx*)malloc(FFT_SIZE * sizeof(kiss_fft_cpx));
     fft_out = (kiss_fft_cpx*)malloc(FFT_SIZE / 2 * sizeof(kiss_fft_cpx) + 1);
 
-    /*// debug pattern
+    fft_tex = (GLubyte*)malloc(4 * FFT_SIZE / 2 * sizeof(GLubyte));
+
+    // debug pattern
     int i;
-    for(i=0; i < 60*32; i++) {
-        if(i%2==0)
-            fft_tex[i*4+1] = 255;
-    }*/
+    for(i=0; i < 4 * FFT_SIZE / 2; i++)
+        fft_tex[i] = 0;
 
     ESContext esContext;
     UserData  userData;
