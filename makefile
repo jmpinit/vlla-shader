@@ -12,8 +12,8 @@ SOURCES = vlla-shader.c \
 INCLUDES = -Isrc/inc/common -Isrc/inc -I/usr/local/include -I/opt/vc/include -I/opt/vc/include/interface/vcos/pthreads -I/opt/vc/include/interface/vmcs_host/linux
 OBJECTS = $(patsubst %,$(OBJDIR)/%,$(SOURCES:.c=.o))
 
-CFLAGS := -DRPI_NO_X
-LFLAGS = -lm -L/usr/local/lib -lGLESv2 -lEGL -L/opt/vc/lib -L./src/common -lvlla -lbcm_host
+CFLAGS := -DRPI_NO_X -g
+LFLAGS = -lm -L/usr/local/lib -lGLESv2 -lEGL -L/opt/vc/lib -L./src/common -lasound -pthread -lvlla -lbcm_host
 CC := gcc
 
 all: $(PROG)

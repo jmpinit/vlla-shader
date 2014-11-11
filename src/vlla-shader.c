@@ -4,17 +4,27 @@
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
+#include <pthread.h>
+
+#include <alsa/asoundlib.h>
 
 #include "kiss_fftr.h"
 #include "esUtil.h"
 
-#define BUFFER_SIZE 2048
+#define BUFFER_SIZE 4096
+#define DOWNSAMPLE 3
+#define FFT_SIZE (BUFFER_SIZE / DOWNSAMPLE)
 
 #define WIDTH 60
 #define HEIGHT 32
 #define NUM_PIXELS (WIDTH*HEIGHT)
 
-#define FFT_SIZE 2048
+snd_pcm_t *capture_handle;
+snd_pcm_hw_params_t *hw_params;
+unsigned int sampleRate;
+
+uint8_t audiobuf[BUFFER_SIZE];
+int16_t samplebuf[FFT_SIZE];
 kiss_fft_cfg fft_cfg;
 kiss_fft_cpx *fft_in;
 kiss_fft_cpx *fft_out;
@@ -32,9 +42,8 @@ typedef struct {
     GLuint programObject;
 } UserData;
 
-int db_to_pixel(float dbfs) {
-    return yzero + (int)(-dbfs*scale);
-}
+pthread_t tid[1];
+bool running = true;
 
 void shiftFFT(unsigned int amt) {
     if(amt > FFT_SIZE) printf("\nFFT shifted too far.");
@@ -46,19 +55,49 @@ void shiftFFT(unsigned int amt) {
     }
 }
 
-void updateFFT() {
-    char buffer[BUFFER_SIZE];
-    int len = read(STDIN_FILENO, buffer, BUFFER_SIZE);
-
-    shiftFFT(len);
-
+void* consumeAudio(void *arg) {
     int i;
-    for(i=0; i < len; i += 2) {
-        fft_in[FFT_SIZE-len/2 + i/2].r = (float)(buffer[i]<<1) / 255.f;
-        fft_in[FFT_SIZE-len/2 + i/2].i = (float)(buffer[i+1]<<1) / 255.f;
-    }
 
-    kiss_fft(fft_cfg, fft_in, fft_out);
+    while(running) {
+        // record some audio data
+        int numFrames = BUFFER_SIZE/2;
+        int sampleCount = snd_pcm_readi(capture_handle, audiobuf, numFrames);
+        //int sampleCount = read(STDIN_FILENO, audiobuf, BUFFER_SIZE)/2;
+
+        if(sampleCount < 0) {
+            fprintf (stderr, "read from audio interface failed (%s)\n", snd_strerror (sampleCount));
+        } else {
+            // downsample TODO FIR filter
+            //printf("\n");
+            for(i = 0; i < sampleCount; i += DOWNSAMPLE) {
+                samplebuf[i/DOWNSAMPLE] = (audiobuf[i*2]) | (audiobuf[i*2+1] << 8);
+
+            //    if(i < 16*DOWNSAMPLE)
+            //        printf("%d\t", samplebuf[i/DOWNSAMPLE]);
+            }
+
+            int downsampleCount = sampleCount / DOWNSAMPLE;
+
+            shiftFFT(downsampleCount);
+
+            for(i=0; i < downsampleCount; i += 2) {
+                fft_in[FFT_SIZE-(downsampleCount + i)/2].r = (float)(samplebuf[i]) / 32767.f;
+                fft_in[FFT_SIZE-(downsampleCount + i)/2].i = (float)(samplebuf[i+1]) / 32767.f;
+            }
+            //printf("\n");
+
+            kiss_fft(fft_cfg, fft_in, fft_out);
+        }
+    }
+    return NULL;
+}
+
+int db_to_pixel(float dbfs) {
+    return yzero + (int)(-dbfs*scale);
+}
+
+void updateFFT() {
+    int i;
 
     kiss_fft_cpx pt;
     for(i = 0; i < FFT_SIZE/2; i++) {
@@ -74,7 +113,7 @@ void updateFFT() {
         //    printf("%d\t", v);
         v = (v < 0)?      0       : v;
         v = (v > 0xff)?   0xff    : v;
-        fft_tex[(i+4*60)*4] = v;
+        fft_tex[4*i] = v;
     }
 }
 
@@ -281,17 +320,103 @@ void Draw ( ESContext *esContext ) {
     glDrawArrays ( GL_TRIANGLE_STRIP, 0, 4 );
 }
 
+void cleanup() {
+    running = false;
+    snd_pcm_close(capture_handle);
+}
+
 int main ( int argc, char *argv[] ) {
+    int i;
+    int err;
+    
+    // fft
     fft_cfg = kiss_fft_alloc(FFT_SIZE, FALSE, NULL, NULL);
     fft_in = (kiss_fft_cpx*)malloc(FFT_SIZE * sizeof(kiss_fft_cpx));
-    fft_out = (kiss_fft_cpx*)malloc(FFT_SIZE / 2 * sizeof(kiss_fft_cpx) + 1);
+    fft_out = (kiss_fft_cpx*)malloc(FFT_SIZE * sizeof(kiss_fft_cpx));
 
     fft_tex = (GLubyte*)malloc(4 * FFT_SIZE / 2 * sizeof(GLubyte));
 
+    if(fft_in == NULL || fft_out == NULL || fft_tex == NULL) {
+        printf("Not enough memory.\n");
+        exit(1);
+    }
+
+    // audio
+    char* device = "mic";
+    if ((err = snd_pcm_open (&capture_handle, device, SND_PCM_STREAM_CAPTURE, 0)) < 0) {
+        fprintf (stderr, "cannot open audio device %s (%s)\n", 
+                device,
+                snd_strerror (err));
+        exit (1);
+    }
+
+    if ((err = snd_pcm_hw_params_malloc (&hw_params)) < 0) {
+        fprintf (stderr, "cannot allocate hardware parameter structure (%s)\n",
+                snd_strerror (err));
+        exit (1);
+    }
+
+    if ((err = snd_pcm_hw_params_any (capture_handle, hw_params)) < 0) {
+        fprintf (stderr, "cannot initialize hardware parameter structure (%s)\n",
+                snd_strerror (err));
+        exit (1);
+    }
+
+    if ((err = snd_pcm_hw_params_set_access (capture_handle, hw_params, SND_PCM_ACCESS_RW_INTERLEAVED)) < 0) {
+        fprintf (stderr, "cannot set access type (%s)\n",
+                snd_strerror (err));
+        exit (1);
+    }
+
+    if ((err = snd_pcm_hw_params_set_format (capture_handle, hw_params, SND_PCM_FORMAT_S16_LE)) < 0) {
+        fprintf (stderr, "cannot set sample format (%s)\n",
+                snd_strerror (err));
+        exit (1);
+    }
+
+    sampleRate = 44100;
+    if ((err = snd_pcm_hw_params_set_rate_near (capture_handle, hw_params, &sampleRate, 0)) < 0) {
+        fprintf (stderr, "cannot set sample rate (%s)\n",
+                snd_strerror (err));
+        exit (1);
+    }
+    printf("sample rate is %d Hz.\n", sampleRate);
+
+    if ((err = snd_pcm_hw_params_set_channels (capture_handle, hw_params, 1)) < 0) {
+        fprintf (stderr, "cannot set channel count (%s)\n",
+                snd_strerror (err));
+        exit (1);
+    }
+
+    if ((err = snd_pcm_hw_params (capture_handle, hw_params)) < 0) {
+        fprintf (stderr, "cannot set parameters (%s)\n",
+                snd_strerror (err));
+        exit (1);
+    }
+
+    snd_pcm_hw_params_free (hw_params);
+
+    if ((err = snd_pcm_prepare (capture_handle)) < 0) {
+        fprintf (stderr, "cannot prepare audio interface for use (%s)\n",
+                snd_strerror (err));
+        exit (1);
+    }
+
+    err = pthread_create(&(tid[0]), NULL, &consumeAudio, NULL);
+    if (err != 0)
+        printf("can't create thread :[%s]\n", strerror(err));
+    else
+        printf("audio thread created successfully\n");
+
+    printf("created recording stream.\n");
+    printf("FFT_SIZE=%d\n", FFT_SIZE);
+
     // debug pattern
-    int i;
-    for(i=0; i < 4 * FFT_SIZE / 2; i++)
+    for(i=0; i < 4 * FFT_SIZE / 2; i++) {
         fft_tex[i] = 0;
+        //if(i%4==2)
+        //    fft_tex[i] = 255;
+    }
 
     ESContext esContext;
     UserData  userData;
