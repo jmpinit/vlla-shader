@@ -11,8 +11,8 @@
 #include "kiss_fftr.h"
 #include "esUtil.h"
 
-#define BUFFER_SIZE 4096
-#define DOWNSAMPLE 3
+#define BUFFER_SIZE 8000
+#define DOWNSAMPLE 4
 #define FFT_SIZE (BUFFER_SIZE / DOWNSAMPLE)
 
 #define WIDTH 60
@@ -33,7 +33,7 @@ float log_pwr_fft[FFT_SIZE];
 float shaderTime = 0.0f;
 GLubyte* fft_tex;
 
-int yzero = 80;
+int yzero = 60;
 float scale = -1.0f;
 float outerscale = 1.0f;
 
@@ -109,10 +109,10 @@ void updateFFT() {
         log_pwr_fft[i] = 10.f * log10(pwr + 1.0e-20f);
 
         int v = outerscale*db_to_pixel(log_pwr_fft[i]);
-        //if(i < 16)
-        //    printf("%d\t", v);
         v = (v < 0)?      0       : v;
         v = (v > 0xff)?   0xff    : v;
+        //if(i < 16)
+        //    printf("%d\t", v);
         fft_tex[4*i] = v;
     }
 }
