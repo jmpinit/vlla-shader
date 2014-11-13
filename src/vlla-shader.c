@@ -219,6 +219,7 @@ int Init(ESContext *esContext) {
     GLint linked;
 
     // Load the vertex shader
+    fragmentShader = LoadShader(GL_FRAGMENT_SHADER, loadfile(fragmentShaderFilename));
     GLuint vertexShader = LoadShader(GL_VERTEX_SHADER, loadfile("vert.glsl"));
 
     // Create the program object
@@ -458,12 +459,6 @@ void init_gl(ESContext* ctx) {
     esRegisterDrawFunc(ctx, Draw);
 }
 
-void init_shaders() {
-    // shader setup
-    glGenTextures(2, fragTextures);
-    fragmentShader = LoadShader(GL_FRAGMENT_SHADER, loadfile(fragmentShaderFilename));
-}
-
 int main(int argc, char *argv[]) {
     consume_parameters(argc, argv);
 
@@ -472,7 +467,8 @@ int main(int argc, char *argv[]) {
     init_fft();
     init_audio();
     init_gl(&esContext);
-    init_shaders();
+
+    glGenTextures(2, fragTextures);
 
     esMainLoop(&esContext);
 }
