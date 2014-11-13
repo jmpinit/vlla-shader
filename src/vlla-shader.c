@@ -117,47 +117,42 @@ void updateFFT() {
     }
 }
 
-///
-// Create a shader object, load the shader source, and
+// create a shader object, load the shader source, and
 // compile the shader.
-//
-GLuint LoadShader ( GLenum type, const char *shaderSrc )
-{
+GLuint LoadShader(GLenum type, const char *shaderSrc) {
     GLuint shader;
     GLint compiled;
 
     // Create the shader object
-    shader = glCreateShader ( type );
+    shader = glCreateShader(type);
 
-    if ( shader == 0 )
+    if(shader == 0)
         return 0;
 
     // Load the shader source
-    glShaderSource ( shader, 1, &shaderSrc, NULL );
+    glShaderSource(shader, 1, &shaderSrc, NULL);
 
     // Compile the shader
-    glCompileShader ( shader );
+    glCompileShader(shader);
 
     // Check the compile status
-    glGetShaderiv ( shader, GL_COMPILE_STATUS, &compiled );
+    glGetShaderiv(shader, GL_COMPILE_STATUS, &compiled);
 
-    if ( !compiled ) 
-    {
+    if(!compiled) {
         GLint infoLen = 0;
 
-        glGetShaderiv ( shader, GL_INFO_LOG_LENGTH, &infoLen );
+        glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &infoLen);
 
-        if ( infoLen > 1 )
-        {
-            char* infoLog = malloc (sizeof(char) * infoLen );
+        if(infoLen > 1) {
+            char* infoLog = malloc (sizeof(char) * infoLen);
 
-            glGetShaderInfoLog ( shader, infoLen, NULL, infoLog );
-            esLogMessage ( "Error compiling shader:\n%s\n", infoLog );            
+            glGetShaderInfoLog(shader, infoLen, NULL, infoLog);
+            esLogMessage("Error compiling shader:\n%s\n", infoLog);            
 
-            free ( infoLog );
+            free(infoLog);
         }
 
-        glDeleteShader ( shader );
+        glDeleteShader(shader);
         return 0;
     }
 
@@ -191,8 +186,7 @@ char* loadfile(char* filename) {
 ///
 // Initialize the shader and program object
 //
-int Init ( ESContext *esContext )
-{
+int Init(ESContext *esContext) {
     esContext->userData = malloc(sizeof(UserData));
 
     UserData *userData = esContext->userData;
@@ -207,7 +201,7 @@ int Init ( ESContext *esContext )
       "precision mediump float;\n"\
       "void main()                                  \n"
       "{                                            \n"
-      "  gl_FragColor = vec4 ( 0.0, 0.0, 1.0, gl_FragCoord.xf );\n"
+      "  gl_FragColor = vec4(0.0, 0.0, 1.0, gl_FragCoord.xf);\n"
       "}                                            \n";*/
 
     GLuint vertexShader;
@@ -216,58 +210,56 @@ int Init ( ESContext *esContext )
     GLint linked;
 
     // Load the vertex/fragment shaders
-    vertexShader = LoadShader ( GL_VERTEX_SHADER, loadfile("vert.glsl") );
-    fragmentShader = LoadShader ( GL_FRAGMENT_SHADER, loadfile("frag.glsl") );
+    vertexShader = LoadShader(GL_VERTEX_SHADER, loadfile("vert.glsl"));
+    fragmentShader = LoadShader(GL_FRAGMENT_SHADER, loadfile("frag.glsl"));
 
     // Create the program object
-    programObject = glCreateProgram ( );
+    programObject = glCreateProgram();
 
-    if ( programObject == 0 )
+    if(programObject == 0)
         return 0;
 
-    glAttachShader ( programObject, vertexShader );
-    glAttachShader ( programObject, fragmentShader );
+    glAttachShader(programObject, vertexShader);
+    glAttachShader(programObject, fragmentShader);
 
     // Bind vPosition to attribute 0   
-    glBindAttribLocation ( programObject, 0, "vPosition" );
+    glBindAttribLocation(programObject, 0, "vPosition");
 
     // Link the program
-    glLinkProgram ( programObject );
+    glLinkProgram(programObject);
 
     // Check the link status
-    glGetProgramiv ( programObject, GL_LINK_STATUS, &linked );
+    glGetProgramiv(programObject, GL_LINK_STATUS, &linked);
 
-    if ( !linked ) 
-    {
+    if(!linked) {
         GLint infoLen = 0;
 
-        glGetProgramiv ( programObject, GL_INFO_LOG_LENGTH, &infoLen );
+        glGetProgramiv(programObject, GL_INFO_LOG_LENGTH, &infoLen);
 
-        if ( infoLen > 1 )
-        {
-            char* infoLog = malloc (sizeof(char) * infoLen );
+        if(infoLen > 1) {
+            char* infoLog = malloc (sizeof(char) * infoLen);
 
-            glGetProgramInfoLog ( programObject, infoLen, NULL, infoLog );
-            esLogMessage ( "Error linking program:\n%s\n", infoLog );            
+            glGetProgramInfoLog(programObject, infoLen, NULL, infoLog);
+            esLogMessage("Error linking program:\n%s\n", infoLog);            
 
-            free ( infoLog );
+            free(infoLog);
         }
 
-        glDeleteProgram ( programObject );
+        glDeleteProgram(programObject);
         return GL_FALSE;
     }
 
     // Store the program object
     userData->programObject = programObject;
 
-    glClearColor ( 0.0f, 0.0f, 0.0f, 0.0f );
+    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     return GL_TRUE;
 }
 
 ///
 // Draw a triangle using the shader pair created in Init()
 //
-void Draw ( ESContext *esContext ) {
+void Draw(ESContext *esContext) {
     UserData *userData = esContext->userData;
 
     // TIME
@@ -304,10 +296,10 @@ void Draw ( ESContext *esContext ) {
     glBindTexture(GL_TEXTURE_2D, textureID[0]);
 
     // Set the viewport
-    glViewport ( 0, 0, esContext->width, esContext->height );
+    glViewport(0, 0, esContext->width, esContext->height);
 
     // Clear the color buffer
-    glClear ( GL_COLOR_BUFFER_BIT );
+    glClear(GL_COLOR_BUFFER_BIT);
 
     // Use the program object
     glUseProgram(userData->programObject);
@@ -317,7 +309,7 @@ void Draw ( ESContext *esContext ) {
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, vVertices);
     glEnableVertexAttribArray(0);
 
-    glDrawArrays ( GL_TRIANGLE_STRIP, 0, 4 );
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 }
 
 void cleanup() {
@@ -325,7 +317,7 @@ void cleanup() {
     snd_pcm_close(capture_handle);
 }
 
-int main ( int argc, char *argv[] ) {
+int main(int argc, char *argv[]) {
     int i;
     int err;
     
@@ -421,15 +413,15 @@ int main ( int argc, char *argv[] ) {
     ESContext esContext;
     UserData  userData;
 
-    esInitContext ( &esContext );
+    esInitContext(&esContext);
     esContext.userData = &userData;
 
-    esCreateWindow ( &esContext, "Hello Triangle", 60, 32, ES_WINDOW_RGB );
+    esCreateWindow(&esContext, "Hello Triangle", 60, 32, ES_WINDOW_RGB);
 
-    if ( !Init ( &esContext ) )
+    if(!Init(&esContext))
         return 0;
 
-    esRegisterDrawFunc ( &esContext, Draw );
+    esRegisterDrawFunc(&esContext, Draw);
 
-    esMainLoop ( &esContext );
+    esMainLoop(&esContext);
 }
