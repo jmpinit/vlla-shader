@@ -33,6 +33,11 @@ float log_pwr_fft[FFT_SIZE];
 float shaderTime = 0.0f;
 GLubyte* fft_tex;
 
+char* fragmentShaderFilename;
+GLuint fragmentShader;
+
+GLuint fragTextures[2];
+
 int yzero = 60;
 float scale = -1.0f;
 float outerscale = 1.0f;
@@ -210,14 +215,11 @@ int Init(ESContext *esContext) {
       "  gl_FragColor = vec4(0.0, 0.0, 1.0, gl_FragCoord.xf);\n"
       "}                                            \n";*/
 
-    GLuint vertexShader;
-    GLuint fragmentShader;
     GLuint programObject;
     GLint linked;
 
-    // Load the vertex/fragment shaders
-    vertexShader = LoadShader(GL_VERTEX_SHADER, loadfile("vert.glsl"));
-    fragmentShader = LoadShader(GL_FRAGMENT_SHADER, loadfile("frag.glsl"));
+    // Load the vertex shader
+    GLuint vertexShader = LoadShader(GL_VERTEX_SHADER, loadfile("vert.glsl"));
 
     // Create the program object
     programObject = glCreateProgram();
@@ -340,9 +342,25 @@ void cleanup() {
     snd_pcm_close(capture_handle);
 }
 
+void consume_parameters(int argc, char *argv[]) {
+    if(argc != 2) {
+        printf("usage: vlla-shader <fragment shader source file>\n");
+        exit(1);
+    }
+
+    fragmentShaderFilename = argv[1];
+
+    if(access(fragmentShaderFilename, F_OK) == -1) {
+        fprintf(stderr, "Fragment shader source file does not exist.\n");
+        exit(1);
+    }
+}
+
 int main(int argc, char *argv[]) {
     int i;
     int err;
+
+    consume_parameters(argc, argv);
     
     // fft
     fft_cfg = kiss_fft_alloc(FFT_SIZE, FALSE, NULL, NULL);
@@ -445,6 +463,10 @@ int main(int argc, char *argv[]) {
         return 0;
 
     esRegisterDrawFunc(&esContext, Draw);
+
+    // shader setup
+    glGenTextures(2, fragTextures);
+    fragmentShader = LoadShader(GL_FRAGMENT_SHADER, loadfile(fragmentShaderFilename));
 
     esMainLoop(&esContext);
 }
