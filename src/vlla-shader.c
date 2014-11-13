@@ -356,13 +356,7 @@ void consume_parameters(int argc, char *argv[]) {
     }
 }
 
-int main(int argc, char *argv[]) {
-    int i;
-    int err;
-
-    consume_parameters(argc, argv);
-    
-    // fft
+void init_fft() {
     fft_cfg = kiss_fft_alloc(FFT_SIZE, FALSE, NULL, NULL);
     fft_in = (kiss_fft_cpx*)malloc(FFT_SIZE * sizeof(kiss_fft_cpx));
     fft_out = (kiss_fft_cpx*)malloc(FFT_SIZE * sizeof(kiss_fft_cpx));
@@ -373,8 +367,11 @@ int main(int argc, char *argv[]) {
         printf("Not enough memory.\n");
         exit(1);
     }
+}
 
-    // audio
+void init_audio() {
+    int err;
+
     char* device = "mic";
     if ((err = snd_pcm_open (&capture_handle, device, SND_PCM_STREAM_CAPTURE, 0)) < 0) {
         fprintf (stderr, "cannot open audio device %s (%s)\n", 
@@ -443,30 +440,39 @@ int main(int argc, char *argv[]) {
 
     printf("created recording stream.\n");
     printf("FFT_SIZE=%d\n", FFT_SIZE);
+}
 
-    // debug pattern
-    for(i=0; i < 4 * FFT_SIZE / 2; i++) {
-        fft_tex[i] = 0;
-        //if(i%4==2)
-        //    fft_tex[i] = 255;
-    }
-
-    ESContext esContext;
+void init_gl(ESContext* ctx) {
     UserData  userData;
 
-    esInitContext(&esContext);
-    esContext.userData = &userData;
+    esInitContext(ctx);
+    ctx->userData = &userData;
 
-    esCreateWindow(&esContext, "VLLA", 60, 32, ES_WINDOW_RGB);
+    esCreateWindow(ctx, "VLLA", 60, 32, ES_WINDOW_RGB);
 
-    if(!Init(&esContext))
-        return 0;
+    if(!Init(ctx)) {
+        fprintf(stderr, "Could not initialize OpenGL ES context.\n");
+        exit(1);
+    }
 
-    esRegisterDrawFunc(&esContext, Draw);
+    esRegisterDrawFunc(ctx, Draw);
+}
 
+void init_shaders() {
     // shader setup
     glGenTextures(2, fragTextures);
     fragmentShader = LoadShader(GL_FRAGMENT_SHADER, loadfile(fragmentShaderFilename));
+}
+
+int main(int argc, char *argv[]) {
+    consume_parameters(argc, argv);
+
+    ESContext esContext;
+
+    init_fft();
+    init_audio();
+    init_gl(&esContext);
+    init_shaders();
 
     esMainLoop(&esContext);
 }
