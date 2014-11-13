@@ -416,7 +416,7 @@ int main(int argc, char *argv[]) {
     esInitContext(&esContext);
     esContext.userData = &userData;
 
-    esCreateWindow(&esContext, "Hello Triangle", 60, 32, ES_WINDOW_RGB);
+    esCreateWindow(&esContext, "VLLA", 60, 32, ES_WINDOW_RGB);
 
     if(!Init(&esContext))
         return 0;
