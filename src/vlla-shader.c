@@ -72,8 +72,8 @@ void* consumeAudio(void *arg) {
             for(i = 0; i < sampleCount; i += DOWNSAMPLE) {
                 samplebuf[i/DOWNSAMPLE] = (audiobuf[i*2]) | (audiobuf[i*2+1] << 8);
 
-            //    if(i < 16*DOWNSAMPLE)
-            //        printf("%d\t", samplebuf[i/DOWNSAMPLE]);
+                if(i < 16*DOWNSAMPLE && (int)shaderTime % 100 == 0)
+                    printf("%d\t", samplebuf[i/DOWNSAMPLE]);
             }
 
             int downsampleCount = sampleCount / DOWNSAMPLE;
@@ -115,6 +115,12 @@ void updateFFT() {
         //    printf("%d\t", v);
         fft_tex[4*i] = v;
     }
+    /*for(i=0; i < FFT_SIZE/4; i++) {
+        if((int)shaderTime / 16 % 2 == 0)
+            fft_tex[4*i] = 0xff;
+        else
+            fft_tex[4*i] = 0x11;
+    }*/
 }
 
 // create a shader object, load the shader source, and
@@ -144,7 +150,7 @@ GLuint LoadShader(GLenum type, const char *shaderSrc) {
         glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &infoLen);
 
         if(infoLen > 1) {
-            char* infoLog = malloc (sizeof(char) * infoLen);
+            char* infoLog = malloc(sizeof(char) * infoLen);
 
             glGetShaderInfoLog(shader, infoLen, NULL, infoLog);
             esLogMessage("Error compiling shader:\n%s\n", infoLog);            
@@ -256,6 +262,27 @@ int Init(ESContext *esContext) {
     return GL_TRUE;
 }
 
+void checkError(const char* msg) {
+    int err = glGetError();
+    switch(err) {
+        case GL_INVALID_ENUM:
+            printf("%s\ninvalid enum\n", msg);
+            break;
+        case GL_INVALID_VALUE:
+            printf("%s\ninvalid value\n", msg);
+            break;
+        case GL_INVALID_OPERATION:
+            printf("%s\ninvalid op\n", msg);
+            break;
+        case GL_INVALID_FRAMEBUFFER_OPERATION:
+            printf("%s\ninvalid framebuffer op\n", msg);
+            break;
+        case GL_OUT_OF_MEMORY:
+            printf("%s\nout of memory\n", msg);
+            break;
+    }
+}
+
 ///
 // Draw a triangle using the shader pair created in Init()
 //
@@ -282,18 +309,14 @@ void Draw(ESContext *esContext) {
 
     updateFFT();
 
-    GLuint textureID[1];
-    glGenTextures(1, textureID);
-
-    glBindTexture(GL_TEXTURE_2D, textureID[0]);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, FFT_SIZE / 2, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, (GLvoid*)fft_tex);
 
     GLint baseImageLoc = glGetUniformLocation(userData->programObject, "fft");
     glUniform1i(baseImageLoc, 0);
 
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, textureID[0]);
 
     // Set the viewport
     glViewport(0, 0, esContext->width, esContext->height);
