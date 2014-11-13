@@ -201,26 +201,19 @@ int Init(ESContext *esContext) {
     esContext->userData = malloc(sizeof(UserData));
 
     UserData *userData = esContext->userData;
-    /*GLbyte vShaderStr[] =  
+    GLbyte vShaderStr[] =  
+      "#version 100                 \n"
       "attribute vec4 vPosition;    \n"
       "void main()                  \n"
       "{                            \n"
       "   gl_Position = vPosition;  \n"
       "}                            \n";
 
-      GLbyte fShaderStr[] =  
-      "precision mediump float;\n"\
-      "void main()                                  \n"
-      "{                                            \n"
-      "  gl_FragColor = vec4(0.0, 0.0, 1.0, gl_FragCoord.xf);\n"
-      "}                                            \n";*/
-
     GLuint programObject;
     GLint linked;
 
-    // Load the vertex shader
     fragmentShader = LoadShader(GL_FRAGMENT_SHADER, loadfile(fragmentShaderFilename));
-    GLuint vertexShader = LoadShader(GL_VERTEX_SHADER, loadfile("vert.glsl"));
+    GLuint vertexShader = LoadShader(GL_VERTEX_SHADER, vShaderStr);
 
     // Create the program object
     programObject = glCreateProgram();
