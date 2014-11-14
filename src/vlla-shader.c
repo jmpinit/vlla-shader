@@ -48,9 +48,9 @@ GLuint fragmentShader;
 
 GLuint fragTextures[2];
 
-int yzero = 60;
+int yzero = 65;
 float scale = -1.0f;
-float outerscale = 1.0f;
+float outerscale = 0.8f;
 
 typedef struct {
     // Handle to a program object
@@ -403,7 +403,7 @@ void init_fft() {
         exit(1);
     }
 
-    last_tex = (GLubyte*)malloc(WIDTH*HEIGHT*4 * sizeof(GLubyte)); // FIXME
+    last_tex = (GLubyte*)malloc(WIDTH*HEIGHT*4 * sizeof(GLubyte));
 }
 
 void init_audio() {
@@ -480,7 +480,7 @@ void init_audio() {
 }
 
 void init_gl(ESContext* ctx) {
-    UserData  userData;
+    UserData userData;
 
     esInitContext(ctx);
     ctx->userData = &userData;
