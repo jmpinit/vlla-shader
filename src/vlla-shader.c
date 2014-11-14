@@ -40,6 +40,8 @@ float log_pwr_fft[FFT_SIZE];
 float shaderTime = 0.0f;
 GLubyte* fft_tex;
 
+ESContext esContext;
+
 char* fragmentShaderFilename;
 GLuint fragmentShader;
 
@@ -56,6 +58,7 @@ typedef struct {
 
 pthread_t tid[2];
 bool running = true;
+bool reload = false;
 
 void shiftFFT(unsigned int amt) {
     if(amt > FFT_SIZE) printf("\nFFT shifted too far.");
@@ -84,8 +87,8 @@ void* consumeAudio(void *arg) {
             for(i = 0; i < sampleCount; i += DOWNSAMPLE) {
                 samplebuf[i/DOWNSAMPLE] = (audiobuf[i*2]) | (audiobuf[i*2+1] << 8);
 
-                if(i < 16*DOWNSAMPLE && (int)shaderTime % 100 == 0)
-                    printf("%d\t", samplebuf[i/DOWNSAMPLE]);
+                //if(i < 16*DOWNSAMPLE && (int)shaderTime % 100 == 0)
+                //    printf("%d\t", samplebuf[i/DOWNSAMPLE]);
             }
 
             int downsampleCount = sampleCount / DOWNSAMPLE;
@@ -290,6 +293,17 @@ void checkError(const char* msg) {
 // Draw a triangle using the shader pair created in Init()
 //
 void Draw(ESContext *esContext) {
+    if(reload) {
+        if(!Init(esContext)) {
+            fprintf(stderr, "Could not initialize OpenGL ES context.\n");
+            exit(1);
+        } else {
+            printf("\nreloaded frag shader\n");
+        }
+        
+        reload = false;
+    }
+
     UserData *userData = esContext->userData;
 
     // TIME
@@ -307,7 +321,6 @@ void Draw(ESContext *esContext) {
 
     int mouseLoc = glGetUniformLocation(userData->programObject, "mouse");
     glUniform2f(mouseLoc, 0.f, 0.f);
-
 
     // AUDIO
 
@@ -483,21 +496,18 @@ void* watchCode(void *arg) {
     fd = inotify_init();
     if(fd < 0) perror("inotify_init");
 
-    wd = inotify_add_watch(fd, fragmentShaderFilename, IN_MODIFY);
+    wd = inotify_add_watch(fd, fragmentShaderFilename, IN_MODIFY | IN_CREATE | IN_CLOSE_WRITE);
 
     while(running) {
         length = read(fd, buffer, EVENT_BUF_LEN); 
         if(length < 0) perror("inotify read");
-
-        fragmentShader = LoadShader(GL_FRAGMENT_SHADER, loadfile(fragmentShaderFilename));
-        printf("\nreloaded frag shader\n");
+        printf("file change detected\n");
+        reload = true;
     }
 }
 
 int main(int argc, char *argv[]) {
     consume_parameters(argc, argv);
-
-    ESContext esContext;
 
     init_fft();
     init_audio();
