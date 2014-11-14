@@ -411,9 +411,11 @@ void ESUTIL_API esMainLoop ( ESContext *esContext )
 
         eglSwapBuffers(esContext->eglDisplay, esContext->eglSurface);
 
-        // VLLA
-        glReadPixels(0, 0, 60, 32, GL_RGBA, GL_UNSIGNED_BYTE, vlla->pixels);
-        vlla_update(vlla);
+        if(frames > 2) {
+            // VLLA
+            glReadPixels(0, 0, 60, 32, GL_RGBA, GL_UNSIGNED_BYTE, vlla->pixels);
+            vlla_update(vlla);
+        }
 
         totaltime += deltatime;
         frames++;
