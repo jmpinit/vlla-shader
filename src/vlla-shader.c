@@ -509,6 +509,9 @@ void* watchCode(void *arg) {
         if(length < 0) perror("inotify read");
         printf("file change detected\n");
         reload = true;
+
+        inotify_rm_watch(fd, wd);
+        wd = inotify_add_watch(fd, fragmentShaderFilename, IN_MODIFY | IN_CREATE | IN_CLOSE_WRITE);
     }
 }
 
