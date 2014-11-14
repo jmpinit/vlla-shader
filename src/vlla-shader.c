@@ -13,8 +13,8 @@
 #include "kiss_fftr.h"
 #include "esUtil.h"
 
-#define EVENT_SIZE  ( sizeof (struct inotify_event) )
-#define EVENT_BUF_LEN     ( 1024 * ( EVENT_SIZE + 16 ) )
+#define EVENT_SIZE      ( sizeof (struct inotify_event) )
+#define EVENT_BUF_LEN   ( 1024 * ( EVENT_SIZE + 16 ) )
 
 #define BUFFER_SIZE 8000
 #define DOWNSAMPLE 4
@@ -39,6 +39,7 @@ float log_pwr_fft[FFT_SIZE];
 
 float shaderTime = 0.0f;
 GLubyte* fft_tex;
+GLubyte* last_tex;
 
 ESContext esContext;
 
@@ -343,6 +344,12 @@ void Draw(ESContext *esContext) {
     glBindTexture(GL_TEXTURE_2D, fragTextures[1]);
     glUniform1i(lastFrameLoc, 1);
 
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, WIDTH, HEIGHT, 0, GL_RGBA, GL_UNSIGNED_BYTE, (GLvoid*)last_tex);
+
+    //glActiveTexture(GL_TEXTURE1);
+    //glBindTexture(GL_TEXTURE_2D, fragTextures[1]);
+
     // Set the viewport
     glViewport(0, 0, esContext->width, esContext->height);
 
@@ -359,10 +366,7 @@ void Draw(ESContext *esContext) {
 
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
-    // last frame
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, fragTextures[1]);
-    glCopyTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 0, 0, WIDTH, HEIGHT, 0);
+    glReadPixels(0, 0, WIDTH, HEIGHT, GL_RGBA, GL_UNSIGNED_BYTE, last_tex);
 }
 
 void cleanup() {
@@ -398,6 +402,8 @@ void init_fft() {
         printf("Not enough memory.\n");
         exit(1);
     }
+
+    last_tex = (GLubyte*)malloc(WIDTH*HEIGHT*4 * sizeof(GLubyte)); // FIXME
 }
 
 void init_audio() {
