@@ -34,5 +34,5 @@ void main() {
     float first = step(p.x, 0.5 / resolution.x);
     float rest = 1.0 - first;
 
-    gl_FragColor = vec4(0.0, 0.0, 0.0, 0.0) + first * freq + rest * prev;
+    gl_FragColor = vec4(0.0, 0.5, 1.0, 0.0) * first * freq * 2.0 + rest * prev;
 }
