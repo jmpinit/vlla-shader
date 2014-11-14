@@ -1,15 +1,20 @@
-#include <stdlib.h>
+#include <errno.h>
+#include <linux/inotify.h>
+#include <pthread.h>
 #include <stdbool.h>
 #include <stdio.h>
-#include <unistd.h>
-#include <errno.h>
+#include <stdlib.h>
 #include <string.h>
-#include <pthread.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include <alsa/asoundlib.h>
 
 #include "kiss_fftr.h"
 #include "esUtil.h"
+
+#define EVENT_SIZE  ( sizeof (struct inotify_event) )
+#define EVENT_BUF_LEN     ( 1024 * ( EVENT_SIZE + 16 ) )
 
 #define BUFFER_SIZE 8000
 #define DOWNSAMPLE 4
@@ -18,6 +23,8 @@
 #define WIDTH 60
 #define HEIGHT 32
 #define NUM_PIXELS (WIDTH*HEIGHT)
+
+int fd, wd;
 
 snd_pcm_t *capture_handle;
 snd_pcm_hw_params_t *hw_params;
@@ -47,7 +54,7 @@ typedef struct {
     GLuint programObject;
 } UserData;
 
-pthread_t tid[1];
+pthread_t tid[2];
 bool running = true;
 
 void shiftFFT(unsigned int amt) {
@@ -301,18 +308,27 @@ void Draw(ESContext *esContext) {
     int mouseLoc = glGetUniformLocation(userData->programObject, "mouse");
     glUniform2f(mouseLoc, 0.f, 0.f);
 
+
     // AUDIO
 
     updateFFT();
 
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, FFT_SIZE / 2, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, (GLvoid*)fft_tex);
-
     GLint baseImageLoc = glGetUniformLocation(userData->programObject, "fft");
-    glUniform1i(baseImageLoc, 0);
 
     glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, fragTextures[0]);
+    glUniform1i(baseImageLoc, 0);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, FFT_SIZE / 2, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, (GLvoid*)fft_tex);
+
+    // LAST FRAME
+
+    GLint lastFrameLoc = glGetUniformLocation(userData->programObject, "last");
+
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, fragTextures[1]);
+    glUniform1i(lastFrameLoc, 1);
 
     // Set the viewport
     glViewport(0, 0, esContext->width, esContext->height);
@@ -329,10 +345,18 @@ void Draw(ESContext *esContext) {
     glEnableVertexAttribArray(0);
 
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    // last frame
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, fragTextures[1]);
+    glCopyTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 0, 0, WIDTH, HEIGHT, 0);
 }
 
 void cleanup() {
     running = false;
+
+    inotify_rm_watch(fd, wd);
+    close(fd);
     snd_pcm_close(capture_handle);
 }
 
@@ -441,7 +465,7 @@ void init_gl(ESContext* ctx) {
 
     esInitContext(ctx);
     ctx->userData = &userData;
-
+//
     esCreateWindow(ctx, "VLLA", 60, 32, ES_WINDOW_RGB);
 
     if(!Init(ctx)) {
@@ -452,6 +476,24 @@ void init_gl(ESContext* ctx) {
     esRegisterDrawFunc(ctx, Draw);
 }
 
+void* watchCode(void *arg) {
+    int length, i = 0;
+    char buffer[EVENT_BUF_LEN];
+
+    fd = inotify_init();
+    if(fd < 0) perror("inotify_init");
+
+    wd = inotify_add_watch(fd, fragmentShaderFilename, IN_MODIFY);
+
+    while(running) {
+        length = read(fd, buffer, EVENT_BUF_LEN); 
+        if(length < 0) perror("inotify read");
+
+        fragmentShader = LoadShader(GL_FRAGMENT_SHADER, loadfile(fragmentShaderFilename));
+        printf("\nreloaded frag shader\n");
+    }
+}
+
 int main(int argc, char *argv[]) {
     consume_parameters(argc, argv);
 
@@ -460,6 +502,12 @@ int main(int argc, char *argv[]) {
     init_fft();
     init_audio();
     init_gl(&esContext);
+
+    int err = pthread_create(&(tid[1]), NULL, &watchCode, NULL);
+    if (err != 0)
+        printf("can't create thread :[%s]\n", strerror(err));
+    else
+        printf("audio thread created successfully\n");
 
     glGenTextures(2, fragTextures);
 
