@@ -299,7 +299,8 @@ void Draw(ESContext *esContext) {
         frames = 0;
 
         // clear last frame
-        for(int i=0; i < WIDTH*HEIGHT*4; i++)
+        int i;
+        for(i=0; i < WIDTH*HEIGHT*4; i++)
             last_tex[i] = 0;
         
         if(!Init(esContext)) {
