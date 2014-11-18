@@ -42,6 +42,7 @@ GLubyte* fft_tex;
 GLubyte* last_tex;
 
 ESContext esContext;
+unsigned int frames = 0;
 
 char* fragmentShaderFilename;
 GLuint fragmentShader;
@@ -295,9 +296,14 @@ void checkError(const char* msg) {
 //
 void Draw(ESContext *esContext) {
     if(reload) {
+        frames = 0;
+
+        // clear last frame
+        for(int i=0; i < WIDTH*HEIGHT*4; i++)
+            last_tex[i] = 0;
+        
         if(!Init(esContext)) {
             fprintf(stderr, "Could not initialize OpenGL ES context.\n");
-            exit(1);
         } else {
             printf("\nreloaded frag shader\n");
         }
@@ -530,5 +536,5 @@ int main(int argc, char *argv[]) {
 
     glGenTextures(2, fragTextures);
 
-    esMainLoop(&esContext);
+    esMainLoop(&esContext, &frames);
 }

@@ -124,7 +124,7 @@ GLboolean ESUTIL_API esCreateWindow ( ESContext *esContext, const char *title, G
 /// \brief Start the main loop for the OpenGL ES application
 /// \param esContext Application context
 //
-void ESUTIL_API esMainLoop ( ESContext *esContext );
+void ESUTIL_API esMainLoop ( ESContext *esContext, unsigned int* frames );
 
 //
 /// \brief Register a draw callback function to be used to render each frame

@@ -386,17 +386,20 @@ GLboolean ESUTIL_API esCreateWindow ( ESContext *esContext, const char* title, G
 //    Start the main loop for the OpenGL ES application
 //
 
-void ESUTIL_API esMainLoop ( ESContext *esContext )
+void ESUTIL_API esMainLoop(ESContext *esContext, unsigned int* frames)
 {
     struct timeval t1, t2;
     struct timezone tz;
     float deltatime;
     float totaltime = 0.0f;
-    unsigned int frames = 0;
+
+    int lastFrame = 0;
 
     gettimeofday ( &t1 , &tz );
 
+#ifdef RPI_NO_X
     VLLA* vlla = vlla_init("/dev/ttyACM0", "/dev/ttyACM1");
+#endif
 
     while(userInterrupt(esContext) == GL_FALSE)
     {
@@ -411,19 +414,21 @@ void ESUTIL_API esMainLoop ( ESContext *esContext )
 
         eglSwapBuffers(esContext->eglDisplay, esContext->eglSurface);
 
-        if(frames > 2) {
+        if((*frames) > 2) {
+#ifdef RPI_NO_X
             // VLLA
             glReadPixels(0, 0, 60, 32, GL_RGBA, GL_UNSIGNED_BYTE, vlla->pixels);
             vlla_update(vlla);
+#endif
         }
 
         totaltime += deltatime;
-        frames++;
+        (*frames)++;
         if (totaltime >  2.0f)
         {
-            printf("%4d frames rendered in %1.4f seconds -> FPS=%3.4f\n", frames, totaltime, frames/totaltime);
+            printf("%4d frames rendered in %1.4f seconds -> FPS=%3.4f\n", *frames - lastFrame, totaltime, (*frames - lastFrame)/totaltime);
             totaltime -= 2.0f;
-            frames = 0;
+            lastFrame = *frames;
         }
     }
 }
