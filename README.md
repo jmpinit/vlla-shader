@@ -5,14 +5,14 @@ Shader Toy for the Very Large LED Array (VLLA).
 <img width="1290" alt="image" src="https://github.com/jmpinit/vlla-shader/assets/2086541/b61c4dff-3475-4e79-9c34-e4fac99262fb">
 
 Some friends made the VLLA and then later I connected it to a Raspberry Pi
-and wrote various pieces of software (like this project, and [1](https://github.com/jmpinit/vlla-gifs/blob/master/gif.py),
+and wrote various pieces of software (like this project, and [1](https://github.com/jmpinit/vlla-gifs),
 [2](https://github.com/jmpinit/vlla-cannon),
 [3](https://github.com/jmpinit/vlla-dj),
 [4](https://github.com/jmpinit/vlla-lua),
 [5](https://github.com/jmpinit/vlla-demotime),
 [6](https://github.com/jmpinit/vlla-js)) to create effects on it.
 It used a library called [libvlla](https://github.com/jmpinit/libvlla) that I made
-to pump the pixels out over to serial ports to Teensy boards which then shifted the
+to pump the pixels out over two serial ports to Teensy boards which then shifted the
 data out to the custom LED boards.
 
 I worked on it in 2014 while I was in school.
